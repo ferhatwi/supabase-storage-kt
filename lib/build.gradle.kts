@@ -25,7 +25,7 @@ publishing {
                 from(components["java"])
                 groupId = "io.github.ferhatwi"
                 artifactId = "supabase-storage-kt"
-                version = "0.1.0"
+                version = "0.1.1"
                 name.set("Supabase Storage")
                 description.set("Kotlin client for Supabase Storage")
                 url.set("http://www.github.com/ferhatwi/supabase-storage-kt")

@@ -1,205 +1,137 @@
 package io.github.ferhatwi.supabase.storage.references
 
-import io.github.ferhatwi.supabase.Supabase
-import io.github.ferhatwi.supabase.storage.applicationJson
-import io.github.ferhatwi.supabase.storage.getClient
-import io.github.ferhatwi.supabase.storage.request
-import io.github.ferhatwi.supabase.storage.storageURL
-import io.ktor.client.call.*
+import io.github.ferhatwi.supabase.storage.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import java.io.File
 
 class FileReference internal constructor(
     private val bucketName: String,
-    private val folderPath: String,
-    private val name: String
+    folderPath: String,
+    name: String
 ) {
 
     private val pathAfterBucket = "$folderPath${if (folderPath.isEmpty()) "" else "/"}$name"
 
-
     suspend fun upload(
         file: File,
         contentType: String,
-        cacheControl: Int? = null,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
-        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
-                url,
-                HttpMethod.Post,
-                MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        file.readBytes(),
-                        contentType,
-                        cacheControl,
-                        false
-                    )
-                )
-            )
-            onSuccess()
-        }, onFailure)
-    }
+        cacheControl: Int? = null
+    ) = upload(file.readBytes(), contentType, cacheControl)
 
     suspend fun upload(
         data: Any?,
         contentType: String,
-        cacheControl: Int? = null,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
-        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
+        cacheControl: Int? = null
+    ) = upload(data.toString().toByteArray(), contentType, cacheControl)
 
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
-                url,
-                HttpMethod.Post,
-                MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        data.toString().toByteArray(),
-                        contentType,
-                        cacheControl,
-                        false
-                    )
-                )
-            )
-            onSuccess()
-        }, onFailure)
-    }
-
-
-    suspend fun upsert(
-        file: File,
+    private suspend fun upload(
+        byteArray: ByteArray,
         contentType: String,
-        cacheControl: Int? = null,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+        cacheControl: Int? = null
+    ) = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
 
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
+        runCatching<HttpResponse>({
+            getClient().request(
                 url,
                 HttpMethod.Post,
                 MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        file.readBytes(),
-                        contentType,
-                        cacheControl,
-                        true
-                    )
+                    formData(byteArray, contentType, cacheControl, false)
                 )
             )
-            onSuccess()
-        }, onFailure)
-    }
-
-    suspend fun upsert(
-        data: Any?, contentType: String,
-        cacheControl: Int? = null,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
-        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
-
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
-                url,
-                HttpMethod.Post,
-                MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        data.toString().toByteArray(),
-                        contentType,
-                        cacheControl,
-                        true
-                    )
-                )
-            )
-            onSuccess()
-        }, onFailure)
-    }
-
-    suspend fun get(onFailure: (HttpStatusCode) -> Unit = {}, onSuccess: (ByteArray) -> Unit = {}) {
-        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            val result: HttpResponse = getClient().request(url, HttpMethod.Get)
-            onSuccess(result.receive())
-        }, onFailure)
-    }
-
-    suspend fun saveTo(
-        destination: String,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
-        val file = File(destination)
-        get(onFailure, onSuccess = {
-            file.writeBytes(it)
-            onSuccess()
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
         })
     }
 
+    suspend fun upsert(
+        file: File,
+        contentType: String,
+        cacheControl: Int? = null
+    ) = upsert(file.readBytes(), contentType, cacheControl)
+
+    suspend fun upsert(
+        data: Any?,
+        contentType: String,
+        cacheControl: Int? = null
+    ) = upsert(data.toString().toByteArray(), contentType, cacheControl)
+
+    private suspend fun upsert(
+        byteArray: ByteArray,
+        contentType: String,
+        cacheControl: Int? = null
+    ) = flow {
+        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
+
+        runCatching<HttpResponse>({
+            getClient().request(
+                url,
+                HttpMethod.Post,
+                MultiPartFormDataContent(
+                    formData(byteArray, contentType, cacheControl, true)
+                )
+            )
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
+    }
+
+    suspend fun get() = flow {
+        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
+
+        runCatching<ByteArray>({
+            getClient().request(url, HttpMethod.Get)
+        }, onSuccess = {
+            emit(it)
+        })
+    }
+
+    suspend fun saveTo(destination: String) = flow {
+        get().collect {
+            emit(File(destination).writeBytes(it))
+        }
+    }
+
     suspend fun update(
         file: File,
         contentType: String,
-        cacheControl: Int? = null,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
-        val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
-                url,
-                HttpMethod.Put,
-                MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        file.readBytes(),
-                        contentType,
-                        cacheControl,
-                        false
-                    )
-                )
-            )
-            onSuccess()
-        }, onFailure)
-    }
+        cacheControl: Int? = null
+    ) = update(file.readBytes(), contentType, cacheControl)
 
     suspend fun update(
-        data: Any?, contentType: String,
-        cacheControl: Int,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+        data: Any?,
+        contentType: String,
+        cacheControl: Int? = null
+    ) = update(data.toString().toByteArray(), contentType, cacheControl)
+
+    private suspend fun update(
+        byteArray: ByteArray,
+        contentType: String,
+        cacheControl: Int? = null
+    ) = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(
+
+        runCatching<HttpResponse>({
+            getClient().request(
                 url,
                 HttpMethod.Put,
                 MultiPartFormDataContent(
-                    io.github.ferhatwi.supabase.storage.formData(
-                        data.toString().toByteArray(),
-                        contentType,
-                        cacheControl,
-                        false
-                    )
+                    formData(byteArray, contentType, cacheControl, false)
                 )
             )
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-    suspend fun moveFromHere(
-        to: BucketReference.() -> FileReference,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun moveFromHere(to: BucketReference.() -> FileReference) = flow {
         val bucketReference = BucketReference(bucketName)
         if (to(bucketReference).bucketName != bucketName) {
-            throw Exception("Bucket name ${to(bucketReference).bucketName} does not match $bucketName")
+            throw Exception("${to(bucketReference).bucketName} does not match $bucketName")
         }
 
         val url = "${storageURL()}/object/move"
@@ -208,23 +140,20 @@ class FileReference internal constructor(
             "sourceKey" to pathAfterBucket,
             "destinationKey" to to(bucketReference).run { pathAfterBucket }
         )
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-
-    suspend fun moveToHere(
-        from: BucketReference.() -> FileReference,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun moveToHere(from: BucketReference.() -> FileReference) = flow {
         val bucketReference = BucketReference(bucketName)
         if (from(bucketReference).bucketName != bucketName) {
-            throw Exception("Bucket name ${from(bucketReference).bucketName} does not match $bucketName")
+            throw Exception("${from(bucketReference).bucketName} does not match $bucketName")
         }
 
         val url = "${storageURL()}/object/move"
@@ -233,23 +162,20 @@ class FileReference internal constructor(
             "sourceKey" to from(bucketReference).run { pathAfterBucket },
             "destinationKey" to pathAfterBucket
         )
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-
-    suspend fun copyFromHere(
-        to: BucketReference.() -> FileReference,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun copyFromHere(to: BucketReference.() -> FileReference) = flow {
         val bucketReference = BucketReference(bucketName)
         if (to(bucketReference).bucketName != bucketName) {
-            throw Exception("Bucket name ${to(bucketReference).bucketName} does not match $bucketName")
+            throw Exception("${to(bucketReference).bucketName} does not match $bucketName")
         }
 
         val url = "${storageURL()}/object/copy"
@@ -258,23 +184,20 @@ class FileReference internal constructor(
             "sourceKey" to pathAfterBucket,
             "destinationKey" to to(bucketReference).run { pathAfterBucket }
         )
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-
-    suspend fun copyToHere(
-        from: BucketReference.() -> FileReference,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun copyToHere(from: BucketReference.() -> FileReference) = flow {
         val bucketReference = BucketReference(bucketName)
         if (from(bucketReference).bucketName != bucketName) {
-            throw Exception("Bucket name ${from(bucketReference).bucketName} does not match $bucketName")
+            throw Exception("${from(bucketReference).bucketName} does not match $bucketName")
         }
 
         val url = "${storageURL()}/object/copy"
@@ -283,43 +206,41 @@ class FileReference internal constructor(
             "sourceKey" to from(bucketReference).run { pathAfterBucket },
             "destinationKey" to pathAfterBucket
         )
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-    suspend fun createSignedURL(
-        expiresIn: Int,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun createSignedURL(expiresIn: Int) = flow {
         val url = "${storageURL()}/object/sign/$bucketName/$pathAfterBucket".encodeURLPath()
         val map = hashMapOf<String, Any?>("expiresIn" to expiresIn)
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-
-    suspend fun remove(onFailure: (HttpStatusCode) -> Unit = {}, onSuccess: () -> Unit = {}) {
+    suspend fun remove() = flow {
         val url = "${storageURL()}/object/$bucketName"
 
-        val map = mapOf<String, Any?>("prefixes" to arrayOf(pathAfterBucket))
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Delete, map) {
+        runCatching<HttpResponse>({
+            getClient().request<HttpResponse>(url, HttpMethod.Delete) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
     fun getPublicUrl() =
-        "https://${Supabase.PROJECT_ID}.supabase.co/storage/v1/object/public/$bucketName/$pathAfterBucket".encodeURLPath()
-
+        "${storageURL()}//object/public/$bucketName/$pathAfterBucket".encodeURLPath()
 }

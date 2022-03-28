@@ -2,17 +2,14 @@ package io.github.ferhatwi.supabase.storage
 
 import io.github.ferhatwi.supabase.Supabase
 import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.features.*
 import io.ktor.client.features.json.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
-import io.ktor.client.response.*
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.utils.*
 import io.ktor.http.*
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 internal fun storageURL() = "https://${Supabase.PROJECT_ID}.supabase.co/storage/v1"
 
@@ -71,10 +68,19 @@ internal fun HttpRequestBuilder.authorize() {
     headers.append(HttpHeaders.Authorization, "Bearer ${Supabase.AUTHORIZATION}")
 }
 
-internal suspend fun runCatching(block: suspend () -> Unit, onFailure: (HttpStatusCode) -> Unit) =
-    runCatching { block() }.getOrElse {
+internal suspend inline fun <reified T> runCatching(
+    block: () -> T,
+    onSuccess: (T) -> Unit
+) = runCatching { onSuccess(block()) }
+    .getOrElse {
         when (it) {
-            is ResponseException -> onFailure(it.response.status)
+            is ResponseException -> {
+                val map: Map<String, Any?> = it.response.receive()
+                val message = map["message"] as String?
+                val code = map["code"] as String?
+                val statusCode = it.response
+                throw SupabaseStorageException("$message $code, $statusCode")
+            }
             else -> throw it
         }
     }

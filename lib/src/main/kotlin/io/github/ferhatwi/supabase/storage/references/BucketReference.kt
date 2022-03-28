@@ -1,91 +1,79 @@
 package io.github.ferhatwi.supabase.storage.references
 
-import io.github.ferhatwi.supabase.storage.applicationJson
-import io.github.ferhatwi.supabase.storage.getClient
-import io.github.ferhatwi.supabase.storage.request
+import io.github.ferhatwi.supabase.storage.*
 import io.github.ferhatwi.supabase.storage.snapshots.BucketSnapshot
-import io.github.ferhatwi.supabase.storage.storageURL
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import kotlinx.coroutines.flow.flow
 
 class BucketReference internal constructor(private val name: String) : FolderReference(name, "") {
 
-    suspend fun get(
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: (BucketSnapshot) -> Unit = {}
-    ) {
+    suspend fun get() = flow {
         val url = "${storageURL()}/bucket/$name".encodeURLPath()
 
-        io.github.ferhatwi.supabase.storage.runCatching({
-            val result: Map<String, Any?> = getClient().request(url, HttpMethod.Get)
-            onSuccess(BucketSnapshot(result))
-        }, onFailure)
+        runCatching<Map<String, Any?>>({
+            getClient().request(url, HttpMethod.Get)
+        }, onSuccess = {
+            emit(BucketSnapshot(it))
+        })
     }
 
-    suspend fun makePublic(
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun makePublic() = flow {
         val url = "${storageURL()}/bucket/$name".encodeURLPath()
         val map = mapOf("id" to name, "name" to name, "public" to true)
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Put, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Put, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-    suspend fun makePrivate(
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun makePrivate() = flow {
         val url = "${storageURL()}/bucket/$name".encodeURLPath()
         val map = mapOf("id" to name, "name" to name, "public" to false)
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Put, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Put, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-    suspend fun create(
-        public: Boolean,
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun create(public: Boolean) = flow {
         val url = "${storageURL()}/bucket"
         val map = mapOf("id" to name, "name" to name, "public" to public)
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post, map) {
                 applicationJson()
             }
-            onSuccess()
-        }, onFailure)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-
-    suspend fun empty(
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: () -> Unit = {}
-    ) {
+    suspend fun empty() = flow {
         val url = "${storageURL()}/bucket/$name/empty".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            getClient().request<HttpResponse>(url, HttpMethod.Post)
-            onSuccess()
-        }, onFailure)
+
+        runCatching<HttpResponse>({
+            getClient().request(url, HttpMethod.Post)
+        }, onSuccess = {
+            emit(SupabaseStorageSuccess)
+        })
     }
 
-    suspend fun delete(
-        onFailure: (HttpStatusCode) -> Unit = {},
-        onSuccess: (BucketSnapshot) -> Unit = {}
-    ) {
+    suspend fun delete() = flow {
         val url = "${storageURL()}/bucket/$name".encodeURLPath()
-        io.github.ferhatwi.supabase.storage.runCatching({
-            val result: Map<String, Any?> = getClient().request(url, HttpMethod.Delete)
-            onSuccess(BucketSnapshot(result))
-        }, onFailure)
-    }
 
+        runCatching<Map<String, Any?>>({
+            getClient().request(url, HttpMethod.Delete)
+        }, onSuccess = {
+            emit(BucketSnapshot(it))
+        })
+    }
 }

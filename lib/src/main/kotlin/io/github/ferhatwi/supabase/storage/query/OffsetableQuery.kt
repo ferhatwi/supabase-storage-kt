@@ -7,5 +7,5 @@ open class OffsetableQuery internal constructor(
     folderName: String,
     sort: Sort?
 ) : LimitableQuery(bucketName, folderName, sort, null) {
-    fun offset(value: Int) : LimitableQuery = apply { offset = value }
+    fun offset(value: Int): LimitableQuery = apply { offset = value }
 }

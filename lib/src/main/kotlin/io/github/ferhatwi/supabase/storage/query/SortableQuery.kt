@@ -6,5 +6,6 @@ import io.github.ferhatwi.supabase.storage.Sortable
 
 open class SortableQuery internal constructor(bucketName: String, folderName: String) :
     OffsetableQuery(bucketName, folderName, null) {
-    fun sort(sortable: Sortable, sortBy: SortBy) : OffsetableQuery = apply { sort = Sort(sortable, sortBy) }
+    fun sort(sortable: Sortable, sortBy: SortBy): OffsetableQuery =
+        apply { sort = Sort(sortable, sortBy) }
 }
