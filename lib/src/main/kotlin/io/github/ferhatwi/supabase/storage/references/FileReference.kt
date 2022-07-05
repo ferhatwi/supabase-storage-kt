@@ -4,7 +4,6 @@ import io.github.ferhatwi.supabase.storage.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import java.io.File
 
@@ -35,17 +34,15 @@ class FileReference internal constructor(
     ) = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
 
-        runCatching<HttpResponse>({
-            getClient().request(
-                url,
-                HttpMethod.Post,
-                MultiPartFormDataContent(
-                    formData(byteArray, contentType, cacheControl, false)
-                )
+        getClient().request<HttpResponse>(
+            url,
+            HttpMethod.Post,
+            MultiPartFormDataContent(
+                formData(byteArray, contentType, cacheControl, false)
             )
-        }, onSuccess = {
+        ).also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun upsert(
@@ -67,27 +64,23 @@ class FileReference internal constructor(
     ) = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
 
-        runCatching<HttpResponse>({
-            getClient().request(
-                url,
-                HttpMethod.Post,
-                MultiPartFormDataContent(
-                    formData(byteArray, contentType, cacheControl, true)
-                )
+        getClient().request<HttpResponse>(
+            url,
+            HttpMethod.Post,
+            MultiPartFormDataContent(
+                formData(byteArray, contentType, cacheControl, true)
             )
-        }, onSuccess = {
+        ).also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun get() = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
 
-        runCatching<ByteArray>({
-            getClient().request(url, HttpMethod.Get)
-        }, onSuccess = {
+        getClient().request<ByteArray>(url, HttpMethod.Get).also {
             emit(it)
-        })
+        }
     }
 
     suspend fun saveTo(destination: String) = flow {
@@ -115,17 +108,15 @@ class FileReference internal constructor(
     ) = flow {
         val url = "${storageURL()}/object/$bucketName/$pathAfterBucket".encodeURLPath()
 
-        runCatching<HttpResponse>({
-            getClient().request(
-                url,
-                HttpMethod.Put,
-                MultiPartFormDataContent(
-                    formData(byteArray, contentType, cacheControl, false)
-                )
+        getClient().request<HttpResponse>(
+            url,
+            HttpMethod.Put,
+            MultiPartFormDataContent(
+                formData(byteArray, contentType, cacheControl, false)
             )
-        }, onSuccess = {
+        ).also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun moveFromHere(to: BucketReference.() -> FileReference) = flow {
@@ -141,13 +132,11 @@ class FileReference internal constructor(
             "destinationKey" to to(bucketReference).run { pathAfterBucket }
         )
 
-        runCatching<HttpResponse>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun moveToHere(from: BucketReference.() -> FileReference) = flow {
@@ -163,13 +152,11 @@ class FileReference internal constructor(
             "destinationKey" to pathAfterBucket
         )
 
-        runCatching<HttpResponse>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun copyFromHere(to: BucketReference.() -> FileReference) = flow {
@@ -185,13 +172,11 @@ class FileReference internal constructor(
             "destinationKey" to to(bucketReference).run { pathAfterBucket }
         )
 
-        runCatching<HttpResponse>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun copyToHere(from: BucketReference.() -> FileReference) = flow {
@@ -207,38 +192,32 @@ class FileReference internal constructor(
             "destinationKey" to pathAfterBucket
         )
 
-        runCatching<HttpResponse>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun createSignedURL(expiresIn: Int) = flow {
         val url = "${storageURL()}/object/sign/$bucketName/$pathAfterBucket".encodeURLPath()
         val map = hashMapOf<String, Any?>("expiresIn" to expiresIn)
 
-        runCatching<HttpResponse>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     suspend fun remove() = flow {
         val url = "${storageURL()}/object/$bucketName"
 
-        runCatching<HttpResponse>({
-            getClient().request<HttpResponse>(url, HttpMethod.Delete) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<HttpResponse>(url, HttpMethod.Delete) {
+            applicationJson()
+        }.also {
             emit(SupabaseStorageSuccess)
-        })
+        }
     }
 
     fun getPublicUrl() =

@@ -4,7 +4,6 @@ import io.github.ferhatwi.supabase.storage.*
 import io.github.ferhatwi.supabase.storage.references.FolderReference
 import io.github.ferhatwi.supabase.storage.snapshots.FileSnapshot
 import io.ktor.http.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 
 open class LimitedQuery internal constructor(
@@ -29,13 +28,11 @@ open class LimitedQuery internal constructor(
             map["sortBy"] = it.toMap()
         }
 
-        runCatching<List<Map<String, Any?>>>({
-            getClient().request(url, HttpMethod.Post, map) {
-                applicationJson()
-            }
-        }, onSuccess = {
+        getClient().request<List<Map<String, Any?>>>(url, HttpMethod.Post, map) {
+            applicationJson()
+        }.also {
             emit(it)
-        })
+        }
     }
 
     suspend fun listFiles() = flow {

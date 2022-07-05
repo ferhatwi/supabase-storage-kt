@@ -4,12 +4,12 @@ import io.github.ferhatwi.supabase.Supabase
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.features.*
-import io.ktor.client.features.json.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.utils.*
 import io.ktor.http.*
+import io.ktor.serialization.gson.*
 
 internal fun storageURL() = "https://${Supabase.PROJECT_ID}.supabase.co/storage/v1"
 
@@ -37,8 +37,8 @@ internal fun Sort.toMap(): Map<String, String> {
 
 internal fun getClient(): HttpClient {
     return HttpClient(CIO) {
-        install(JsonFeature) {
-            serializer = GsonSerializer()
+        install(ContentNegotiation) {
+            gson()
         }
     }
 }
@@ -48,16 +48,14 @@ internal suspend inline fun <reified T> HttpClient.request(
     method: HttpMethod,
     body: Any = EmptyContent,
     noinline headers: HeadersBuilder.() -> Unit = {}
-): T {
-    return request(url) {
-        this.method = method
-        this.body = body
-        headers {
-            authorize()
-            headers()
-        }
+): T = request(url) {
+    this.method = method
+    setBody(body)
+    headers {
+        authorize()
+        headers()
     }
-}
+}.body()
 
 
 internal fun HeadersBuilder.applicationJson() {
@@ -68,22 +66,6 @@ internal fun HttpRequestBuilder.authorize() {
     headers.append(HttpHeaders.Authorization, "Bearer ${Supabase.AUTHORIZATION}")
 }
 
-internal suspend inline fun <reified T> runCatching(
-    block: () -> T,
-    onSuccess: (T) -> Unit
-) = runCatching { onSuccess(block()) }
-    .getOrElse {
-        when (it) {
-            is ResponseException -> {
-                val map: Map<String, Any?> = it.response.receive()
-                val message = map["message"] as String?
-                val code = map["code"] as String?
-                val statusCode = it.response
-                throw SupabaseStorageException("$message $code, $statusCode")
-            }
-            else -> throw it
-        }
-    }
 
 
 
